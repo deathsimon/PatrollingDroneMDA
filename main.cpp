@@ -7,8 +7,11 @@
 #include <tuple>
 #include <fstream>
 #include "nlohmann/json.hpp"
+#include <lemon/list_graph.h>
+#include <lemon/matching.h>
 
 using json = nlohmann::json;
+using namespace lemon;
 using namespace std;
 
 struct Point {
@@ -91,32 +94,38 @@ public:
         return oddVertices;
     }
 
-    vector<pair<int, int>> minimumWeightPerfectMatching(const vector<int> &oddVertices) {
-        vector<pair<int, int>> matching;
-        vector<bool> used(V, false);
-
-        for (int i = 0; i < oddVertices.size(); ++i) {
-            if (!used[oddVertices[i]]) {
-                double minWeight = numeric_limits<double>::infinity();
-                int minIndex = -1;
-
-                for (int j = i + 1; j < oddVertices.size(); ++j) {
-                    if (!used[oddVertices[j]] && adjMatrix[oddVertices[i]][oddVertices[j]] < minWeight) {
-                        minWeight = adjMatrix[oddVertices[i]][oddVertices[j]];
-                        minIndex = j;
-                    }
-                }
-
-                if (minIndex != -1) {
-                    used[oddVertices[i]] = true;
-                    used[oddVertices[minIndex]] = true;
-                    matching.push_back({oddVertices[i], oddVertices[minIndex]});
-                }
-            }
+    vector<pair<int, int>> minimumWeightPerfectMatching (const vector<int> &oddVertices) {        
+        int N = oddVertices.size();
+        
+        ListGraph graph;
+        vector<ListGraph::Node> nodes(N);
+        for (int i = 0; i < N; ++i) {
+            nodes[i] = graph.addNode();
         }
 
-        return matching;
-    }
+        ListGraph::EdgeMap<double> weight(graph);
+        for (int i = 0; i < N; ++i) {
+            for (int j = i + 1; j < N; ++j) {
+                ListGraph::Edge e = graph.addEdge(nodes[i], nodes[j]);
+                // assert(adjMatrix[oddVertices[i]][oddVertices[j]] >= 0);
+                weight[e] = abs(adjMatrix[oddVertices[i]][oddVertices[j]])*(-1);
+            }
+        }
+        
+        MaxWeightedPerfectMatching<ListGraph, ListGraph::EdgeMap<double>> mwm(graph, weight);
+        mwm.run();
+
+        vector<pair<int, int>> result;
+        for (ListGraph::EdgeIt e(graph); e != INVALID; ++e) {
+            if (mwm.matching(e)) {
+                int u = graph.id(graph.u(e));
+                int v = graph.id(graph.v(e));
+                result.push_back({oddVertices[u], oddVertices[v]});
+            }
+        }        
+
+        return result;
+    }    
 
     vector<int> eulerianCircuit(const vector<pair<int, int>> &multigraphEdges) {
         vector<vector<int>> adjList(V);
@@ -163,7 +172,8 @@ public:
                 hamiltonianCircuit.push_back(v);                
             }
         }
-        hamiltonianCircuit.push_back(hamiltonianCircuit.front());        
+        HamiltonianWeight += abs(adjMatrix[hamiltonianCircuit.back()][hamiltonianCircuit.front()]);
+        hamiltonianCircuit.push_back(hamiltonianCircuit.front());
         return hamiltonianCircuit;
     }
 
@@ -213,8 +223,9 @@ int main() {
     g.addForcedEdge(start, end, distance(points[start], points[end]));
 
     vector<pair<int, int>> mstEdges = g.minimumSpanningTree();
-    vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);
+    vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
     vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
+    
 
     vector<pair<int, int>> multigraphEdges = mstEdges;
     multigraphEdges.insert(multigraphEdges.end(), matching.begin(), matching.end());
