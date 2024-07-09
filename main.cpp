@@ -10,6 +10,8 @@
 #include <lemon/list_graph.h>
 #include <lemon/matching.h>
 
+#define START 0
+
 using json = nlohmann::json;
 using namespace lemon;
 using namespace std;
@@ -27,10 +29,12 @@ public:
     int V;
     vector<vector<double>> adjMatrix;
     double mstWeight, HamiltonianWeight;
+    int targetNode;
 
     Graph(int V) : V(V), adjMatrix(V, vector<double>(V, 0)){
         mstWeight = 0;
         HamiltonianWeight = 0;
+        targetNode = 0;
     }
 
     void addEdge(int u, int v, double w) {
@@ -38,9 +42,15 @@ public:
         adjMatrix[v][u] = w;
     }
 
-    void addForcedEdge(int u, int v, double w) {
-        adjMatrix[u][v] = -w; // Use negative weight to force inclusion in MST
-        adjMatrix[v][u] = -w;
+    void addForcedEdge(int u, int v) {
+        targetNode = v;
+        adjMatrix[u][v] *= -1; // Use negative weight to force inclusion in MST
+        adjMatrix[v][u] *= -1;
+    }
+    void cancelForcedEdge(int u, int v){
+        adjMatrix[u][v] = abs(adjMatrix[u][v]);
+        adjMatrix[v][u] = abs(adjMatrix[v][u]);
+        targetNode = 0;
     }
 
     vector<pair<int, int>> minimumSpanningTree() {
@@ -184,15 +194,7 @@ public:
         return HamiltonianWeight;
     }
     double getMDA() {
-        double firstEdge = 0;
-        for(int i = 0; i < V; i++){
-            if(adjMatrix[0][i] < 0){
-                firstEdge = abs(adjMatrix[0][i]);
-                break;
-            }            
-        }        
-        
-        return 2*HamiltonianWeight - firstEdge;
+        return 2*HamiltonianWeight - abs(adjMatrix[0][targetNode]);        
     }
 };
 
@@ -202,9 +204,7 @@ int main() {
     json j;
     file >> j;
 
-    int N = j["N"];
-    int start = j["start"];
-    int end = j["end"];
+    int N = j["N"];        
     vector<Point> points(N);
     for (int i = 0; i < N; ++i) {
         points[i].x = j["points"][i]["x"];
@@ -219,34 +219,60 @@ int main() {
         }
     }
 
-    // Add the forced edge with high priority (negative weight)
-    g.addForcedEdge(start, end, distance(points[start], points[end]));
+    double minMDA = numeric_limits<double>::infinity();
+    int optimalTarget = 0;
 
-    vector<pair<int, int>> mstEdges = g.minimumSpanningTree();
-    vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
-    vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
+    for (int target = 0; target < N; ++target) {
+        
+        // Add the forced edge with high priority (negative weight)
+        g.addForcedEdge(START, target);
+        if (target == 0) {
+            cout << "Without enforcing any edge"  << endl;
+        }
+        else{
+            cout << "Enforcing edge " << START << " -> " << target << endl;
+        }
+
+        vector<pair<int, int>> mstEdges = g.minimumSpanningTree();
+        vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
+        vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
     
 
-    vector<pair<int, int>> multigraphEdges = mstEdges;
-    multigraphEdges.insert(multigraphEdges.end(), matching.begin(), matching.end());
+        vector<pair<int, int>> multigraphEdges = mstEdges;
+        multigraphEdges.insert(multigraphEdges.end(), matching.begin(), matching.end());
 
-    // Add the forced edge again in the multigraph to ensure it's part of the circuit
-    multigraphEdges.push_back({start, end});
+        // Add the forced edge again in the multigraph to ensure it's part of the circuit
+        multigraphEdges.push_back({START, target});
 
-    vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges);
-    vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
+        vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges);
+        vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
 
-    cout << "Hamiltonian Cycle: ";
-    for (int v : hamiltonianCircuit) {
-        cout << v << " ";
+        cout << "Hamiltonian Cycle: ";
+        for (int v : hamiltonianCircuit) {
+            cout << v << " ";
+        }
+        cout << endl;
+
+        cout << "MST Weight: " << g.getMSTWeight() << endl;
+        cout << "Hamiltonian Weight: " << g.getHamiltonianWeight() << endl;
+        double MDA = g.getMDA();
+        if(target != 0){
+            cout << "Length of the first edge:" << distance(points[START], points[target]) << endl;            
+        }
+        else{
+            MDA -= distance(points[START], points[hamiltonianCircuit[1]]);
+        }
+        cout << "MDA: " << MDA << endl;
+
+        if (MDA < minMDA) {
+            minMDA = MDA;
+            optimalTarget = target;
+        }
+
+        g.cancelForcedEdge(START, target);
     }
-    cout << endl;
 
-    // assert(g.adjMatrix[hamiltonianCircuit[0]][hamiltonianCircuit[1]] == distance(points[start], points[end]));
-    cout << "MST Weight: " << g.getMSTWeight() << endl;
-    cout << "Hamiltonian Weight: " << g.getHamiltonianWeight() << endl;
-    cout << "Length of the first edge:" << distance(points[start], points[end]) << endl;
-    cout << "MDA: " << g.getMDA() << endl;
+    cout << endl << endl << "Optimal first node: " << optimalTarget << endl;
 
     return 0;
 }
