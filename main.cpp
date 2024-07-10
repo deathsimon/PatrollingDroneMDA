@@ -208,19 +208,7 @@ public:
     }
 };
 
-int main() {
-    // Read the JSON file
-    ifstream file("input.json");
-    json j;
-    file >> j;
-
-    int N = j["N"];        
-    vector<Point> points(N);
-    for (int i = 0; i < N; ++i) {
-        points[i].x = j["points"][i]["x"];
-        points[i].y = j["points"][i]["y"];
-    }
-
+void generatePath(vector<Point> points, int N){
     Graph g(N);
     for (int i = 0; i < N; ++i) {
         for (int j = i + 1; j < N; ++j) {
@@ -282,7 +270,35 @@ int main() {
         g.cancelForcedEdge(START, target);
     }
 
-    cout << endl << endl << "Optimal first node: " << optimalTarget << endl;
+    if (optimalTarget == START)
+    {
+        cout << endl << endl << "TSP leads to the optimal result" << endl;
+    }
+    else{
+        cout << endl << endl << "Optimal first node: " << optimalTarget << endl;
+    }
+}
+
+int main() {
+    // Read the JSON file
+    ifstream file("input.json");
+    json j;
+    file >> j;
+
+    int M = j["cases"];
+
+    for (int scenarioN = 0; scenarioN < M; scenarioN++){         
+        int N = j["scenarios"][scenarioN]["N"];
+        vector<Point> points(N);
+        for (int i = 0; i < N; ++i) {
+            points[i].x = j["scenarios"][scenarioN]["points"][i]["x"];
+            points[i].y = j["scenarios"][scenarioN]["points"][i]["y"];
+        }
+
+        generatePath(points, N);
+    }
+
+    
 
     return 0;
 }
