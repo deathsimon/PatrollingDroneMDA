@@ -136,38 +136,48 @@ public:
 
         return result;
     }    
-
-    vector<int> eulerianCircuit(const vector<pair<int, int>> &multigraphEdges) {
-        vector<vector<int>> adjList(V);
-        for (auto edge : multigraphEdges) {
+    vector<int> eulerianCircuit(const vector<pair<int, int>> &multigraphEdges, int firstNode) {
+        unordered_map<int, list<int>> adjList;
+        for (const auto& edge : multigraphEdges) {
             adjList[edge.first].push_back(edge.second);
             adjList[edge.second].push_back(edge.first);
         }
 
+        // Vector to store the Eulerian circuit
         vector<int> circuit;
+
+        // Stack to manage the current path in the graph        
         vector<int> currentPath;
-        vector<bool> visitedEdges(multigraphEdges.size(), false);
-        currentPath.push_back(0);
+        currentPath.push_back(START);
+        if(firstNode != START){
+            // manually add the first node to the path
+            currentPath.push_back(firstNode);
+            adjList[START].erase(find(adjList[START].begin(), adjList[START].end(), firstNode));
+            adjList[firstNode].erase(find(adjList[firstNode].begin(), adjList[firstNode].end(), START));
+        }
+
         while (!currentPath.empty()) {
-            int u = currentPath.back();
-            bool found = false;
+            int currentVertex = currentPath.back();
 
-            for (auto it = adjList[u].begin(); it != adjList[u].end(); ++it) {
-                int v = *it;
-                adjList[u].erase(it);
-                currentPath.push_back(v);
-                found = true;
-                break;
-            }
+            // If the current vertex has unvisited edges
+            if(!adjList[currentVertex].empty()){
+                int nextVertex = adjList[currentVertex].back();
+                currentPath.push_back(nextVertex);
 
-            if (!found) {
-                circuit.push_back(u);
+                // Remove the edge from the graph                
+                adjList[currentVertex].pop_back();
+                adjList[nextVertex].erase(find(adjList[nextVertex].begin(), adjList[nextVertex].end(), currentVertex));
+            } else {
+                // If the current vertex has no unvisited edges
+                circuit.push_back(currentVertex);
                 currentPath.pop_back();
             }
         }
-        //reverse(circuit.begin(), circuit.end());
+
+        // Reverse the circuit to get the correct order
+        reverse(circuit.begin(), circuit.end());
         return circuit;
-    }
+    }    
 
     vector<int> hamiltonianCircuit(const vector<int> &eulerianCircuit) {
         vector<bool> visited(V, false);
@@ -242,9 +252,9 @@ int main() {
         multigraphEdges.insert(multigraphEdges.end(), matching.begin(), matching.end());
 
         // Add the forced edge again in the multigraph to ensure it's part of the circuit
-        multigraphEdges.push_back({START, target});
-
-        vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges);
+        // multigraphEdges.push_back({START, target});
+        
+        vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges, target);
         vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
 
         cout << "Hamiltonian Cycle: ";
