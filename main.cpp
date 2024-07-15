@@ -25,6 +25,16 @@ double distance(Point a, Point b) {
     return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
 }
 
+struct Results
+{
+    vector<int> path;
+    double MST;
+    double totalDistance;
+    double firstEdge;
+    double MDA;    
+};
+
+
 class Graph {
 public:
     int V;
@@ -45,8 +55,7 @@ public:
 
     vector<int> hamiltonianCircuit_Greedy() {
         vector<int> path;
-        vector<bool> visited(V, false);
-        GreedyWeight = 0;
+        vector<bool> visited(V, false);        
 
         int currentNode = 0;
         visited[currentNode] = true;
@@ -59,15 +68,12 @@ public:
                     minWeight = adjMatrix[currentNode][j];
                     nextNode = j;
                 }
-            }
-            GreedyWeight += minWeight;            
+            }            
             visited[nextNode] = true;
             path.push_back(nextNode);
             currentNode = nextNode;
-        }
-        GreedyWeight += adjMatrix[path.back()][START];
-        path.push_back(START);
-        cout << "Greedy Cycle: " << GreedyWeight << endl;
+        }        
+        path.push_back(START);        
         return path;
     }    
 
@@ -296,35 +302,40 @@ public:
         return hamiltonianCircuit;
     }
 
-    double getMSTWeight() {
-        return mstWeight;
-    }
-    double getHamiltonianWeight() {
-        return HamiltonianWeight;
-    }
-    double getGreedyWeight() {
-        return GreedyWeight;
-    }
-    double getMDA() {
-        return 2*HamiltonianWeight - adjMatrix[0][targetNode];
-    }
+    Results analyzePath(vector<int> &path){
+        Results results;
+        results.MST = mstWeight;
+        results.path = path;
+        results.totalDistance = 0;
+        results.firstEdge = 0;
+        results.MDA = 0;
+        
+        for (int i = 0; i < path.size() - 1; ++i) {
+            results.totalDistance += adjMatrix[path[i]][path[i + 1]];            
+        }
+        results.firstEdge = adjMatrix[path[0]][path[1]];
+        results.MDA = 2*results.totalDistance - results.firstEdge;
+        return results;
+    }       
     int getNumNodes(){
         return V;    
-    }
-    double getDistance(int u, int v){
-        return adjMatrix[u][v];
-    }
+    }    
 };
 
 void generatePath_greedy(Graph &g){
     vector<int> greedyPath = g.hamiltonianCircuit_Greedy();
+
+    Results r = g.analyzePath(greedyPath);
+
     cout << "Greedy Path: ";
     for (int v : greedyPath) {
         cout << v << " ";
     }
     cout << endl;
-    cout << "Length of the first edge:" << g.getDistance(START,greedyPath[1]) << endl;            
-    cout << "MDA: " << 2*g.getGreedyWeight() - g.getDistance(START,greedyPath[1]) << endl;
+    cout << "Hamiltonian Weight: " << r.totalDistance << endl;
+    cout << "Length of the first edge:" << r.firstEdge << endl;
+    cout << "MDA: " << r.MDA << endl;
+    cout << endl;
 }
 
 void generatePath(Graph &g){
@@ -354,25 +365,21 @@ void generatePath(Graph &g){
         vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges, target);
         vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
 
+        Results r = g.analyzePath(hamiltonianCircuit);
+
         cout << "Hamiltonian Cycle: ";
         for (int v : hamiltonianCircuit) {
             cout << v << " ";
         }
         cout << endl;
-
-        cout << "MST Weight: " << g.getMSTWeight() << endl;
-        cout << "Hamiltonian Weight: " << g.getHamiltonianWeight() << endl;
-        double MDA = g.getMDA();
-        if(target != 0){
-            cout << "Length of the first edge:" << g.getDistance(START,target) << endl;            
-        }
-        else{            
-            MDA -= g.getDistance(START, hamiltonianCircuit[1]);
-        }
-        cout << "MDA: " << MDA << endl;
-
-        if (MDA < minMDA) {
-            minMDA = MDA;
+        cout << "MST Weight: " << r.MST << endl;
+        cout << "Hamiltonian Weight: " << r.totalDistance << endl;
+        cout << "Length of the first edge:" << r.firstEdge << endl;
+        cout << "MDA: " << r.MDA << endl;
+        cout << endl;
+        
+        if (r.MDA < minMDA) {
+            minMDA = r.MDA;
             optimalTarget = target;
         }
         
@@ -380,11 +387,12 @@ void generatePath(Graph &g){
 
     if (optimalTarget == START)
     {
-        cout << endl << "TSP leads to the optimal result" << endl;
+        cout << "TSP leads to the optimal result";
     }
     else{
-        cout << endl << "Optimal first node: " << optimalTarget << endl;
+        cout << "Optimal first node: " << optimalTarget;
     }
+    cout << endl << endl;
 }
 
 int main() {
@@ -397,7 +405,7 @@ int main() {
 
     for (int scenarioN = 0; scenarioN < M; scenarioN++){         
 
-        cout << "[Scenario " << scenarioN << "]" << endl;
+        cout << "[Scenario " << scenarioN+1 << "]" << endl;
 
         int N = j["scenarios"][scenarioN]["N"];
         vector<Point> points(N);
@@ -416,8 +424,6 @@ int main() {
         generatePath_greedy(g);
         generatePath(g);
     }
-
-    
 
     return 0;
 }
