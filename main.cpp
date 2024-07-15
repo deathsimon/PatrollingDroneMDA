@@ -5,6 +5,7 @@
 #include <set>
 #include <limits>
 #include <tuple>
+#include <utility>
 #include <fstream>
 #include "nlohmann/json.hpp"
 #include <lemon/list_graph.h>
@@ -40,26 +41,22 @@ public:
     void addEdge(int u, int v, double w) {
         adjMatrix[u][v] = w;
         adjMatrix[v][u] = w;
-    }
+    }    
 
-    void addForcedEdge(int u, int v) {
-        targetNode = v;
-        adjMatrix[u][v] *= -1; // Use negative weight to force inclusion in MST
-        adjMatrix[v][u] *= -1;
-    }
-    void cancelForcedEdge(int u, int v){
-        adjMatrix[u][v] = abs(adjMatrix[u][v]);
-        adjMatrix[v][u] = abs(adjMatrix[v][u]);
-        targetNode = 0;
-    }
-
-    vector<pair<int, int>> minimumSpanningTree() {
+    vector<pair<int, int>> minimumSpanningTree(int forcedEdge) {
         vector<bool> inMST(V, false);
         vector<double> key(V, numeric_limits<double>::infinity());
         vector<int> parent(V, -1);
         key[0] = 0;
         parent[0] = -1;
         mstWeight = 0.0;
+
+        // Use negative weight to force inclusion in MST
+        if(forcedEdge != START){
+            adjMatrix[START][forcedEdge] *= -1;
+            adjMatrix[forcedEdge][START] *= -1;
+            targetNode = forcedEdge;
+        }
 
         for (int count = 0; count < V; ++count) {
             double minKey = numeric_limits<double>::infinity();
@@ -80,6 +77,12 @@ public:
                     parent[v] = u;
                 }
             }
+        }
+
+        // Cancel the forced edge
+        if(forcedEdge != START){
+            adjMatrix[START][forcedEdge] *= -1;
+            adjMatrix[forcedEdge][START] *= -1;            
         }
 
         vector<pair<int, int>> mstEdges;
@@ -135,12 +138,23 @@ public:
         }        
 
         return result;
-    }    
+    }
     vector<int> eulerianCircuit(const vector<pair<int, int>> &multigraphEdges, int firstNode) {
-        unordered_map<int, list<int>> adjList;
+        struct CompareByValue {
+            bool operator()(const std::pair<int, double>& lhs, const std::pair<int, double>& rhs) const {
+                 // Sort in descending order of values
+                return lhs.second > rhs.second;
+            }
+        };
+
+        unordered_map<int, vector<pair<int, double>>> adjList;
         for (const auto& edge : multigraphEdges) {
-            adjList[edge.first].push_back(edge.second);
-            adjList[edge.second].push_back(edge.first);
+            double weight = abs(adjMatrix[edge.first][edge.second]);            
+            adjList[edge.first].push_back(std::make_pair(edge.second, weight));                        
+            adjList[edge.second].push_back(std::make_pair(edge.first, weight));
+        }
+        for (auto& node: adjList){
+            std::sort(node.second.begin(), node.second.end(), CompareByValue());
         }
 
         // Vector to store the Eulerian circuit
@@ -152,21 +166,36 @@ public:
         if(firstNode != START){
             // manually add the first node to the path
             currentPath.push_back(firstNode);
-            adjList[START].erase(find(adjList[START].begin(), adjList[START].end(), firstNode));
-            adjList[firstNode].erase(find(adjList[firstNode].begin(), adjList[firstNode].end(), START));
+            for(auto iter = adjList[START].begin(); iter != adjList[START].end(); ++iter){
+                if(iter->first == firstNode){
+                    adjList[START].erase(iter);                    
+                    for(auto iter2 = adjList[firstNode].begin(); iter2 != adjList[firstNode].end(); ++iter2){
+                        if(iter2->first == START){
+                            adjList[firstNode].erase(iter2);
+                            break;
+                        }
+                    }                    
+                    break;
+                }
+            }
         }
 
         while (!currentPath.empty()) {
             int currentVertex = currentPath.back();
 
             // If the current vertex has unvisited edges
-            if(!adjList[currentVertex].empty()){
-                int nextVertex = adjList[currentVertex].back();
+            if(!adjList[currentVertex].empty()){                
+                int nextVertex = adjList[currentVertex].back().first;                
                 currentPath.push_back(nextVertex);
 
-                // Remove the edge from the graph                
+                // Remove the edge from the graph
                 adjList[currentVertex].pop_back();
-                adjList[nextVertex].erase(find(adjList[nextVertex].begin(), adjList[nextVertex].end(), currentVertex));
+                for(auto iter = adjList[nextVertex].begin(); iter != adjList[nextVertex].end(); ++iter){
+                    if(iter->first == currentVertex){
+                        adjList[nextVertex].erase(iter);
+                        break;
+                    }
+                }                
             } else {
                 // If the current vertex has no unvisited edges
                 circuit.push_back(currentVertex);
@@ -177,7 +206,49 @@ public:
         // Reverse the circuit to get the correct order
         reverse(circuit.begin(), circuit.end());
         return circuit;
-    }    
+    }   
+    // vector<int> eulerianCircuit(const vector<pair<int, int>> &multigraphEdges, int firstNode) {
+    //     unordered_map<int, list<int>> adjList;
+    //     for (const auto& edge : multigraphEdges) {
+    //         adjList[edge.first].push_back(edge.second);
+    //         adjList[edge.second].push_back(edge.first);
+    //     }
+
+    //     // Vector to store the Eulerian circuit
+    //     vector<int> circuit;
+
+    //     // Stack to manage the current path in the graph        
+    //     vector<int> currentPath;
+    //     currentPath.push_back(START);
+    //     if(firstNode != START){
+    //         // manually add the first node to the path
+    //         currentPath.push_back(firstNode);
+    //         adjList[START].erase(find(adjList[START].begin(), adjList[START].end(), firstNode));
+    //         adjList[firstNode].erase(find(adjList[firstNode].begin(), adjList[firstNode].end(), START));
+    //     }
+
+    //     while (!currentPath.empty()) {
+    //         int currentVertex = currentPath.back();
+
+    //         // If the current vertex has unvisited edges
+    //         if(!adjList[currentVertex].empty()){
+    //             int nextVertex = adjList[currentVertex].back();
+    //             currentPath.push_back(nextVertex);
+
+    //             // Remove the edge from the graph                
+    //             adjList[currentVertex].pop_back();
+    //             adjList[nextVertex].erase(find(adjList[nextVertex].begin(), adjList[nextVertex].end(), currentVertex));
+    //         } else {
+    //             // If the current vertex has no unvisited edges
+    //             circuit.push_back(currentVertex);
+    //             currentPath.pop_back();
+    //         }
+    //     }
+
+    //     // Reverse the circuit to get the correct order
+    //     reverse(circuit.begin(), circuit.end());
+    //     return circuit;
+    // }    
 
     vector<int> hamiltonianCircuit(const vector<int> &eulerianCircuit) {
         vector<bool> visited(V, false);
@@ -204,44 +275,40 @@ public:
         return HamiltonianWeight;
     }
     double getMDA() {
-        return 2*HamiltonianWeight - abs(adjMatrix[0][targetNode]);        
+        return 2*HamiltonianWeight - adjMatrix[0][targetNode];
+    }
+    int getNumNodes(){
+        return V;    
+    }
+    double getDistance(int u, int v){
+        return adjMatrix[u][v];
     }
 };
 
-void generatePath(vector<Point> points, int N){
-    Graph g(N);
-    for (int i = 0; i < N; ++i) {
-        for (int j = i + 1; j < N; ++j) {
-            double w = distance(points[i], points[j]);
-            g.addEdge(i, j, w);
-        }
-    }
+void generatePath(Graph &g){
 
     double minMDA = numeric_limits<double>::infinity();
     int optimalTarget = 0;
 
-    for (int target = 0; target < N; ++target) {
+    for (int target = 0; target < g.getNumNodes(); ++target) {
         
         // Add the forced edge with high priority (negative weight)
-        g.addForcedEdge(START, target);
+        //g.addForcedEdge(START, target);
         if (target == 0) {
             cout << "Without enforcing any edge"  << endl;
         }
         else{
-            cout << "Enforcing edge " << START << " -> " << target << endl;
+            cout << "==Enforcing edge " << START << " -> " << target << "==" << endl;
         }
 
-        vector<pair<int, int>> mstEdges = g.minimumSpanningTree();
+        vector<pair<int, int>> mstEdges = g.minimumSpanningTree(target);
         vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
         vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
     
 
         vector<pair<int, int>> multigraphEdges = mstEdges;
         multigraphEdges.insert(multigraphEdges.end(), matching.begin(), matching.end());
-
-        // Add the forced edge again in the multigraph to ensure it's part of the circuit
-        // multigraphEdges.push_back({START, target});
-        
+       
         vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges, target);
         vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
 
@@ -255,10 +322,10 @@ void generatePath(vector<Point> points, int N){
         cout << "Hamiltonian Weight: " << g.getHamiltonianWeight() << endl;
         double MDA = g.getMDA();
         if(target != 0){
-            cout << "Length of the first edge:" << distance(points[START], points[target]) << endl;            
+            cout << "Length of the first edge:" << g.getDistance(START,target) << endl;            
         }
-        else{
-            MDA -= distance(points[START], points[hamiltonianCircuit[1]]);
+        else{            
+            MDA -= g.getDistance(START, hamiltonianCircuit[1]);
         }
         cout << "MDA: " << MDA << endl;
 
@@ -266,16 +333,15 @@ void generatePath(vector<Point> points, int N){
             minMDA = MDA;
             optimalTarget = target;
         }
-
-        g.cancelForcedEdge(START, target);
+        
     }
 
     if (optimalTarget == START)
     {
-        cout << endl << endl << "TSP leads to the optimal result" << endl;
+        cout << endl << "TSP leads to the optimal result" << endl;
     }
     else{
-        cout << endl << endl << "Optimal first node: " << optimalTarget << endl;
+        cout << endl << "Optimal first node: " << optimalTarget << endl;
     }
 }
 
@@ -288,6 +354,9 @@ int main() {
     int M = j["cases"];
 
     for (int scenarioN = 0; scenarioN < M; scenarioN++){         
+
+        cout << "[Scenario " << scenarioN << "]" << endl;
+
         int N = j["scenarios"][scenarioN]["N"];
         vector<Point> points(N);
         for (int i = 0; i < N; ++i) {
@@ -295,7 +364,14 @@ int main() {
             points[i].y = j["scenarios"][scenarioN]["points"][i]["y"];
         }
 
-        generatePath(points, N);
+        Graph g(N);
+        for (int i = 0; i < N; ++i) {
+            for (int j = i + 1; j < N; ++j) {
+                double w = distance(points[i], points[j]);
+                g.addEdge(i, j, w);
+            }
+        }
+        generatePath(g);
     }
 
     
