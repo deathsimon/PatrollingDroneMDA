@@ -29,7 +29,7 @@ class Graph {
 public:
     int V;
     vector<vector<double>> adjMatrix;
-    double mstWeight, HamiltonianWeight;
+    double mstWeight, HamiltonianWeight, GreedyWeight;
     int targetNode;
 
     Graph(int V) : V(V), adjMatrix(V, vector<double>(V, 0)){
@@ -41,6 +41,34 @@ public:
     void addEdge(int u, int v, double w) {
         adjMatrix[u][v] = w;
         adjMatrix[v][u] = w;
+    }
+
+    vector<int> hamiltonianCircuit_Greedy() {
+        vector<int> path;
+        vector<bool> visited(V, false);
+        GreedyWeight = 0;
+
+        int currentNode = 0;
+        visited[currentNode] = true;
+        path.push_back(currentNode);
+        for (int i = 1; i < V; i++) {
+            int nextNode = -1;
+            double minWeight = numeric_limits<double>::infinity();
+            for (int j = 0; j < V; j++) {
+                if (!visited[j] && adjMatrix[currentNode][j] < minWeight) {
+                    minWeight = adjMatrix[currentNode][j];
+                    nextNode = j;
+                }
+            }
+            GreedyWeight += minWeight;            
+            visited[nextNode] = true;
+            path.push_back(nextNode);
+            currentNode = nextNode;
+        }
+        GreedyWeight += adjMatrix[path.back()][START];
+        path.push_back(START);
+        cout << "Greedy Cycle: " << GreedyWeight << endl;
+        return path;
     }    
 
     vector<pair<int, int>> minimumSpanningTree(int forcedEdge) {
@@ -274,6 +302,9 @@ public:
     double getHamiltonianWeight() {
         return HamiltonianWeight;
     }
+    double getGreedyWeight() {
+        return GreedyWeight;
+    }
     double getMDA() {
         return 2*HamiltonianWeight - adjMatrix[0][targetNode];
     }
@@ -284,6 +315,17 @@ public:
         return adjMatrix[u][v];
     }
 };
+
+void generatePath_greedy(Graph &g){
+    vector<int> greedyPath = g.hamiltonianCircuit_Greedy();
+    cout << "Greedy Path: ";
+    for (int v : greedyPath) {
+        cout << v << " ";
+    }
+    cout << endl;
+    cout << "Length of the first edge:" << g.getDistance(START,greedyPath[1]) << endl;            
+    cout << "MDA: " << 2*g.getGreedyWeight() - g.getDistance(START,greedyPath[1]) << endl;
+}
 
 void generatePath(Graph &g){
 
@@ -371,6 +413,7 @@ int main() {
                 g.addEdge(i, j, w);
             }
         }
+        generatePath_greedy(g);
         generatePath(g);
     }
 
