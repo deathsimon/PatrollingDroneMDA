@@ -77,7 +77,7 @@ public:
         return path;
     }    
 
-    vector<pair<int, int>> minimumSpanningTree(int forcedEdge) {
+    vector<pair<int, int>> minimumSpanningTree(int forcedEdge=START) {
         vector<bool> inMST(V, false);
         vector<double> key(V, numeric_limits<double>::infinity());
         vector<int> parent(V, -1);
@@ -173,7 +173,7 @@ public:
 
         return result;
     }
-    vector<int> eulerianCircuit(const vector<pair<int, int>> &multigraphEdges, int firstNode) {
+    vector<int> eulerianCircuit(const vector<pair<int, int>> &multigraphEdges, int firstNode=START) {
         struct CompareByValue {
             bool operator()(const std::pair<int, double>& lhs, const std::pair<int, double>& rhs) const {
                  // Sort in descending order of values
@@ -322,7 +322,7 @@ public:
     }    
 };
 
-void generatePath_greedy(Graph &g){
+void generatePathGreedy(Graph &g){
     vector<int> greedyPath = g.hamiltonianCircuit_Greedy();
 
     Results r = g.analyzePath(greedyPath);
@@ -338,22 +338,46 @@ void generatePath_greedy(Graph &g){
     cout << endl;
 }
 
-void generatePath(Graph &g){
+void generatePathMST(Graph &g){
+    cout << "Without enforcing any edge"  << endl;    
+
+    vector<pair<int, int>> mstEdges = g.minimumSpanningTree();
+    vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
+    vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
+    
+
+    vector<pair<int, int>> multigraphEdges = mstEdges;
+    multigraphEdges.insert(multigraphEdges.end(), matching.begin(), matching.end());
+       
+    vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges);
+    vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
+
+    Results r = g.analyzePath(hamiltonianCircuit);
+
+    cout << "Hamiltonian Cycle: ";
+    for (int v : hamiltonianCircuit) {
+        cout << v << " ";
+    }
+    cout << endl;
+    cout << "MST Weight: " << r.MST << endl;
+    cout << "Hamiltonian Weight: " << r.totalDistance << endl;
+    cout << "Length of the first edge:" << r.firstEdge << endl;
+    cout << "MDA: " << r.MDA << endl;
+    cout << endl;
+
+}
+
+void generatePathEnforce(Graph &g){
 
     double minMDA = numeric_limits<double>::infinity();
     int optimalTarget = 0;
 
-    for (int target = 0; target < g.getNumNodes(); ++target) {
+    for (int target = 1; target < g.getNumNodes(); ++target) {
         
         // Add the forced edge with high priority (negative weight)
         //g.addForcedEdge(START, target);
-        if (target == 0) {
-            cout << "Without enforcing any edge"  << endl;
-        }
-        else{
-            cout << "==Enforcing edge " << START << " -> " << target << "==" << endl;
-        }
-
+        cout << "==Enforcing edge " << START << " -> " << target << "==" << endl;
+        
         vector<pair<int, int>> mstEdges = g.minimumSpanningTree(target);
         vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
         vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
@@ -385,19 +409,14 @@ void generatePath(Graph &g){
         
     }
 
-    if (optimalTarget == START)
-    {
-        cout << "TSP leads to the optimal result";
-    }
-    else{
-        cout << "Optimal first node: " << optimalTarget;
-    }
+    cout << "Optimal first node: " << optimalTarget;    
     cout << endl << endl;
 }
 
-int main() {
+int main(int argc, char *argv[]) {
     // Read the JSON file
-    ifstream file("input.json");
+    //ifstream file("even-3-10.json");
+    ifstream file(argv[1]);
     json j;
     file >> j;
 
@@ -421,8 +440,9 @@ int main() {
                 g.addEdge(i, j, w);
             }
         }
-        generatePath_greedy(g);
-        generatePath(g);
+        generatePathGreedy(g);
+        generatePathMST(g);
+        generatePathEnforce(g);
     }
 
     return 0;
