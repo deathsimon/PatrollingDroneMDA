@@ -1,6 +1,6 @@
 {
     "mode": "outlier",
-    "data nodes": 3,
+    "data nodes": 8,
     "cases": 10,
     "length": 200
 }

@@ -6,21 +6,16 @@ def generate_coordinates_even(nodes, sideLength):
     coordinates = []
     step = sideLength / 4
 
-    coordinates.append({"x": 0, "y": 0})
     for i in range(4):
-        for j in range(4):
-            if len(coordinates) -1 >= nodes:
-                break
+        for j in range(4):            
             x = random.randrange((-1)*sideLength/2 + i * step, (-1)*sideLength/2 + (i + 1) * step)
             y = random.randrange((-1)*sideLength/2 + j * step, (-1)*sideLength/2 + (j + 1) * step)
             coordinates.append({"x": x, "y": y})
-    return coordinates
+    return random.sample(coordinates,nodes)
 
 def generate_coordinates_cluster(nodes, sideLength):
     coordinates = []
     step = sideLength / 4
-
-    coordinates.append({"x": 0, "y": 0})
 
     if nodes < 8:
         clusters = 1
@@ -42,13 +37,12 @@ def generate_coordinates_cluster(nodes, sideLength):
     #     x = random.randrange((-1)*sideLength/2 + i * step, (-1)*sideLength/2 + (i + 1) * step)
     #     y = random.randrange((-1)*sideLength/2 + j * step, (-1)*sideLength/2 + (j + 1) * step)            
     #     coordinates.append({"x": x, "y": y})
-    return coordinates[:nodes+1]
+    return random.sample(coordinates,nodes)
 
 def generate_coordinates_outlier(nodes, sideLength):
     coordinates = []
     step = sideLength / 2
-
-    coordinates.append({"x": 0, "y": 0})
+    
     chosen_areas = random.sample(range(4), 2)
     outlier_area = chosen_areas[0]
     cluster_area = chosen_areas[1]
@@ -91,12 +85,13 @@ def main():
 
     # Generate coordinates
     for _ in range(cases):
+        coordinates = [{"x": 0, "y": 0}]
         if mode == "even":
-            coordinates = generate_coordinates_even(nodes, sideLength)
+            coordinates.extend(generate_coordinates_even(nodes, sideLength))
         elif mode == "cluster":
-            coordinates = generate_coordinates_cluster(nodes, sideLength)
+            coordinates.extend(generate_coordinates_cluster(nodes, sideLength))
         elif mode == "outlier":
-            coordinates = generate_coordinates_outlier(nodes, sideLength)
+            coordinates.extend(generate_coordinates_outlier(nodes, sideLength))
         else:
             print(f"Unknown mode: {mode}")
             return
