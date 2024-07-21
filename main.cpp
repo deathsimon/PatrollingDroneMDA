@@ -44,12 +44,11 @@ class Graph {
 public:
     int V;
     vector<vector<double>> adjMatrix;
-    double mstWeight, HamiltonianWeight, GreedyWeight;
+    double mstWeight;
     int targetNode;
 
     Graph(int V) : V(V), adjMatrix(V, vector<double>(V, 0)){
-        mstWeight = 0;
-        HamiltonianWeight = 0;
+        mstWeight = 0;        
         targetNode = 0;
     }
 
@@ -158,9 +157,8 @@ public:
         ListGraph::EdgeMap<double> weight(graph);
         for (int i = 0; i < N; ++i) {
             for (int j = i + 1; j < N; ++j) {
-                ListGraph::Edge e = graph.addEdge(nodes[i], nodes[j]);
-                // assert(adjMatrix[oddVertices[i]][oddVertices[j]] >= 0);
-                weight[e] = abs(adjMatrix[oddVertices[i]][oddVertices[j]])*(-1);
+                ListGraph::Edge e = graph.addEdge(nodes[i], nodes[j]);                
+                weight[e] = adjMatrix[oddVertices[i]][oddVertices[j]]*(-1);
             }
         }
         
@@ -188,7 +186,7 @@ public:
 
         unordered_map<int, vector<pair<int, double>>> adjList;
         for (const auto& edge : multigraphEdges) {
-            double weight = abs(adjMatrix[edge.first][edge.second]);            
+            double weight = adjMatrix[edge.first][edge.second];
             adjList[edge.first].push_back(std::make_pair(edge.second, weight));                        
             adjList[edge.second].push_back(std::make_pair(edge.first, weight));
         }
@@ -292,17 +290,12 @@ public:
     vector<int> hamiltonianCircuit(const vector<int> &eulerianCircuit) {
         vector<bool> visited(V, false);
         vector<int> hamiltonianCircuit;
-        HamiltonianWeight = 0.0;
         for (int v : eulerianCircuit) {
             if (!visited[v]) {
-                visited[v] = true;
-                if(!hamiltonianCircuit.empty()){
-                    HamiltonianWeight += abs(adjMatrix[hamiltonianCircuit.back()][v]);
-                }
+                visited[v] = true;                
                 hamiltonianCircuit.push_back(v);                
             }
-        }
-        HamiltonianWeight += abs(adjMatrix[hamiltonianCircuit.back()][hamiltonianCircuit.front()]);
+        }        
         hamiltonianCircuit.push_back(hamiltonianCircuit.front());
         return hamiltonianCircuit;
     }
@@ -354,12 +347,13 @@ void generatePathMST(Graph &g, nlohmann::json &output){
     vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
     vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
     
-
     vector<pair<int, int>> multigraphEdges = mstEdges;
     multigraphEdges.insert(multigraphEdges.end(), matching.begin(), matching.end());
        
     vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges);
     vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
+
+    reverse(hamiltonianCircuit.begin(), hamiltonianCircuit.end());
 
     Results r = g.analyzePath(hamiltonianCircuit);
     r.name = "MST";
@@ -464,12 +458,13 @@ pair<double, vector<int>> heldKarp(vector<vector<double>> &dist, int n, int star
         mask &= ~(1 << path.back());
     }
     path.push_back(start);
+    path.push_back(0);
     reverse(path.begin(), path.end());
 
     return {dp[(1 << n) - 1][end], path};
 }
 
-void generateOptimal(vector<vector<double>> &dist, int n, nlohmann::json &output){
+void generateOptimal(Graph &g, vector<vector<double>> &dist, int n, nlohmann::json &output){
     double minCost = numeric_limits<double>::infinity();
     int bestFirstNode = 0;
     vector<int> optPath;
@@ -484,15 +479,15 @@ void generateOptimal(vector<vector<double>> &dist, int n, nlohmann::json &output
     }
 
     // output
-    Results optimal;
+    Results optimal = g.analyzePath(optPath);
     optimal.name = "Optimal";
-    optimal.path = optPath;
-    optimal.MDA = minCost;
+    //optimal.path = optPath;
+    //optimal.MDA = minCost;
     output.push_back(optimal);
 
     #ifdef DISPLAY
     cout << "Optimal MDA: " << minCost << endl;
-    cout << "Optimal Path: 0 ";
+    cout << "Optimal Path: ";
     for (int node : optPath) {
         cout << node << " ";
     }
@@ -537,7 +532,7 @@ int main(int argc, char *argv[]) {
         generatePathGreedy(g, result);
         generatePathMST(g, result);
         generatePathEnforce(g, result);
-        generateOptimal(dist, N, result);
+        generateOptimal(g, dist, N, result);
         output << result.dump(4) << endl;
     }
 
