@@ -36,7 +36,7 @@ struct Results
 };
 
 void to_json(nlohmann::json& j, const Results& r) {
-    j = nlohmann::json{{"name", r.name}, {"MDA", r.MDA}};
+    j = nlohmann::json{{"name", r.name}, {"MDA", r.MDA}, {"Path", r.path}};
 }
 
 
@@ -433,6 +433,73 @@ void generatePathEnforce(Graph &g, nlohmann::json &output){
     cout << endl << endl;
 }
 
+pair<double, vector<int>> heldKarp(vector<vector<double>> &dist, int n, int start, int end) {
+    int subset_size = 1 << n; // 2^n subsets
+    vector<vector<double>> dp(subset_size, vector<double>(n, numeric_limits<double>::infinity()));
+    vector<vector<int>> parent(subset_size, vector<int>(n, -1));
+
+    dp[1 << start][start] = 0;
+
+    for (int mask = 0; mask < subset_size; ++mask) {
+        for (int i = 0; i < n; ++i) {
+            if (!(mask & (1 << i))) continue;
+            for (int j = 0; j < n; ++j) {
+                if (mask & (1 << j) || dist[i][j] == numeric_limits<double>::infinity()) continue;
+                int new_mask = mask | (1 << j);
+                if (dp[new_mask][j] > dp[mask][i] + dist[i][j]) {
+                    dp[new_mask][j] = dp[mask][i] + dist[i][j];
+                    parent[new_mask][j] = i;
+                }
+            }
+        }
+    }
+
+    // Retrieve the shortest path
+    vector<int> path;
+    int mask = (1 << n) - 1;
+    int cur = end;
+    while (cur != start) {
+        path.push_back(cur);
+        cur = parent[mask][cur];
+        mask &= ~(1 << path.back());
+    }
+    path.push_back(start);
+    reverse(path.begin(), path.end());
+
+    return {dp[(1 << n) - 1][end], path};
+}
+
+void generateOptimal(vector<vector<double>> &dist, int n, nlohmann::json &output){
+    double minCost = numeric_limits<double>::infinity();
+    int bestFirstNode = 0;
+    vector<int> optPath;
+    for(int start=1; start < n; start++){
+        auto path = heldKarp(dist, n, start, 0); // alwasys end at 0
+        double MDA = dist[0][start] + 2*path.first;
+        if(minCost > MDA){
+            minCost = MDA;
+            bestFirstNode = start;
+            optPath = path.second;
+        }
+    }
+
+    // output
+    Results optimal;
+    optimal.name = "Optimal";
+    optimal.path = optPath;
+    optimal.MDA = minCost;
+    output.push_back(optimal);
+
+    #ifdef DISPLAY
+    cout << "Optimal MDA: " << minCost << endl;
+    cout << "Optimal Path: 0 ";
+    for (int node : optPath) {
+        cout << node << " ";
+    }
+    cout << endl << endl;
+    #endif
+}
+
 int main(int argc, char *argv[]) {
     // Read the JSON file
     //ifstream file("even-3-10.json");    
@@ -457,17 +524,20 @@ int main(int argc, char *argv[]) {
         }
 
         Graph g(N);
+        vector<vector<double>> dist(N, vector<double>(N)); // Distance matrix for the Held-Karp algorithm
         for (int i = 0; i < N; ++i) {
             for (int j = i + 1; j < N; ++j) {
                 double w = distance(points[i], points[j]);
                 g.addEdge(i, j, w);
+                dist[i][j] = w;
+                dist[j][i] = w;
             }
         }
-
 
         generatePathGreedy(g, result);
         generatePathMST(g, result);
         generatePathEnforce(g, result);
+        generateOptimal(dist, N, result);
         output << result.dump(4) << endl;
     }
 
