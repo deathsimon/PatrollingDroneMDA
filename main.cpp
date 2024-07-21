@@ -28,11 +28,16 @@ double distance(Point a, Point b) {
 struct Results
 {
     vector<int> path;
+    std::string name;
     double MST;
     double totalDistance;
     double firstEdge;
     double MDA;    
 };
+
+void to_json(nlohmann::json& j, const Results& r) {
+    j = nlohmann::json{{"name", r.name}, {"MDA", r.MDA}};
+}
 
 
 class Graph {
@@ -322,11 +327,14 @@ public:
     }    
 };
 
-void generatePathGreedy(Graph &g){
+void generatePathGreedy(Graph &g, nlohmann::json &output){
     vector<int> greedyPath = g.hamiltonianCircuit_Greedy();
 
     Results r = g.analyzePath(greedyPath);
+    r.name = "Greedy";
+    output.push_back(r);
 
+    #ifdef DISPLAY
     cout << "Greedy Path: ";
     for (int v : greedyPath) {
         cout << v << " ";
@@ -336,9 +344,10 @@ void generatePathGreedy(Graph &g){
     cout << "Length of the first edge:" << r.firstEdge << endl;
     cout << "MDA: " << r.MDA << endl;
     cout << endl;
+    #endif
 }
 
-void generatePathMST(Graph &g){
+void generatePathMST(Graph &g, nlohmann::json &output){
     cout << "Without enforcing any edge"  << endl;    
 
     vector<pair<int, int>> mstEdges = g.minimumSpanningTree();
@@ -353,7 +362,10 @@ void generatePathMST(Graph &g){
     vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
 
     Results r = g.analyzePath(hamiltonianCircuit);
+    r.name = "MST";
+    output.push_back(r);
 
+    #ifdef DISPLAY
     cout << "Hamiltonian Cycle: ";
     for (int v : hamiltonianCircuit) {
         cout << v << " ";
@@ -364,19 +376,22 @@ void generatePathMST(Graph &g){
     cout << "Length of the first edge:" << r.firstEdge << endl;
     cout << "MDA: " << r.MDA << endl;
     cout << endl;
-
+    #endif
 }
 
-void generatePathEnforce(Graph &g){
+void generatePathEnforce(Graph &g, nlohmann::json &output){
 
     double minMDA = numeric_limits<double>::infinity();
     int optimalTarget = 0;
+    Results optimal;
 
     for (int target = 1; target < g.getNumNodes(); ++target) {
         
         // Add the forced edge with high priority (negative weight)
         //g.addForcedEdge(START, target);
+        #ifdef DISPLAY
         cout << "==Enforcing edge " << START << " -> " << target << "==" << endl;
+        #endif
         
         vector<pair<int, int>> mstEdges = g.minimumSpanningTree(target);
         vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
@@ -389,8 +404,9 @@ void generatePathEnforce(Graph &g){
         vector<int> eulerianCircuit = g.eulerianCircuit(multigraphEdges, target);
         vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
 
-        Results r = g.analyzePath(hamiltonianCircuit);
+        Results r = g.analyzePath(hamiltonianCircuit);        
 
+        #ifdef DISPLAY
         cout << "Hamiltonian Cycle: ";
         for (int v : hamiltonianCircuit) {
             cout << v << " ";
@@ -401,30 +417,37 @@ void generatePathEnforce(Graph &g){
         cout << "Length of the first edge:" << r.firstEdge << endl;
         cout << "MDA: " << r.MDA << endl;
         cout << endl;
+        #endif
         
         if (r.MDA < minMDA) {
             minMDA = r.MDA;
             optimalTarget = target;
+            optimal = r;
         }
         
     }
 
+    optimal.name = "Enforce";
+    output.push_back(optimal);
     cout << "Optimal first node: " << optimalTarget;    
     cout << endl << endl;
 }
 
 int main(int argc, char *argv[]) {
     // Read the JSON file
-    //ifstream file("even-3-10.json");
+    //ifstream file("even-3-10.json");    
     ifstream file(argv[1]);
     json j;
     file >> j;
 
+    std::ofstream output("output.json", std::ios::out);
+
     int M = j["cases"];
 
-    for (int scenarioN = 0; scenarioN < M; scenarioN++){         
+    for (int scenarioN = 0; scenarioN < M; scenarioN++){
 
         cout << "[Scenario " << scenarioN+1 << "]" << endl;
+        nlohmann::json result = nlohmann::json::array();
 
         int N = j["scenarios"][scenarioN]["N"];
         vector<Point> points(N);
@@ -440,10 +463,15 @@ int main(int argc, char *argv[]) {
                 g.addEdge(i, j, w);
             }
         }
-        generatePathGreedy(g);
-        generatePathMST(g);
-        generatePathEnforce(g);
+
+
+        generatePathGreedy(g, result);
+        generatePathMST(g, result);
+        generatePathEnforce(g, result);
+        output << result.dump(4) << endl;
     }
+
+    output.close();
 
     return 0;
 }
