@@ -10,6 +10,7 @@
 #include "nlohmann/json.hpp"
 #include <lemon/list_graph.h>
 #include <lemon/matching.h>
+#include <chrono>
 
 #define START 0
 
@@ -32,11 +33,12 @@ struct Results
     double MST;
     double totalDistance;
     double firstEdge;
-    double MDA;    
+    double MDA;
+    double time;
 };
 
 void to_json(nlohmann::json& j, const Results& r) {
-    j = nlohmann::json{{"name", r.name}, {"MDA", r.MDA}, {"Path", r.path}};
+    j = nlohmann::json{{"name", r.name}, {"MDA", r.MDA}, {"Path", r.path}, {"Time", r.time}};
 }
 
 
@@ -321,10 +323,16 @@ public:
 };
 
 void generatePathGreedy(Graph &g, nlohmann::json &output){
+
+    auto start = std::chrono::high_resolution_clock::now();
     vector<int> greedyPath = g.hamiltonianCircuit_Greedy();
+    auto end = std::chrono::high_resolution_clock::now();
+    // Calculate the duration in milliseconds
+    std::chrono::duration<double, std::milli> duration = end - start;
 
     Results r = g.analyzePath(greedyPath);
     r.name = "Greedy";
+    r.time = duration.count();
     output.push_back(r);
 
     #ifdef DISPLAY
@@ -341,8 +349,7 @@ void generatePathGreedy(Graph &g, nlohmann::json &output){
 }
 
 void generatePathMST(Graph &g, nlohmann::json &output){
-    cout << "Without enforcing any edge"  << endl;    
-
+    auto start = std::chrono::high_resolution_clock::now();
     vector<pair<int, int>> mstEdges = g.minimumSpanningTree();
     vector<int> oddVertices = g.findOddDegreeVertices(mstEdges);    
     vector<pair<int, int>> matching = g.minimumWeightPerfectMatching(oddVertices);
@@ -354,9 +361,13 @@ void generatePathMST(Graph &g, nlohmann::json &output){
     vector<int> hamiltonianCircuit = g.hamiltonianCircuit(eulerianCircuit);
 
     reverse(hamiltonianCircuit.begin(), hamiltonianCircuit.end());
+    auto end = std::chrono::high_resolution_clock::now();
+    // Calculate the duration in milliseconds
+    std::chrono::duration<double, std::milli> duration = end - start;
 
     Results r = g.analyzePath(hamiltonianCircuit);
     r.name = "MST";
+    r.time = duration.count();
     output.push_back(r);
 
     #ifdef DISPLAY
@@ -379,10 +390,8 @@ void generatePathEnforce(Graph &g, nlohmann::json &output){
     int optimalTarget = 0;
     Results optimal;
 
-    for (int target = 1; target < g.getNumNodes(); ++target) {
-        
-        // Add the forced edge with high priority (negative weight)
-        //g.addForcedEdge(START, target);
+    auto start = std::chrono::high_resolution_clock::now();
+    for (int target = 1; target < g.getNumNodes(); ++target) {                
         #ifdef DISPLAY
         cout << "==Enforcing edge " << START << " -> " << target << "==" << endl;
         #endif
@@ -417,11 +426,14 @@ void generatePathEnforce(Graph &g, nlohmann::json &output){
             minMDA = r.MDA;
             optimalTarget = target;
             optimal = r;
-        }
-        
+        }        
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    // Calculate the duration in milliseconds
+    std::chrono::duration<double, std::milli> duration = end - start;
 
     optimal.name = "Enforce";
+    optimal.time = duration.count();
     output.push_back(optimal);
     cout << "Optimal first node: " << optimalTarget;    
     cout << endl << endl;
@@ -468,6 +480,7 @@ void generateOptimal(Graph &g, vector<vector<double>> &dist, int n, nlohmann::js
     double minCost = numeric_limits<double>::infinity();
     int bestFirstNode = 0;
     vector<int> optPath;
+    auto start = std::chrono::high_resolution_clock::now();
     for(int start=1; start < n; start++){
         auto path = heldKarp(dist, n, start, 0); // alwasys end at 0
         double MDA = dist[0][start] + 2*path.first;
@@ -477,12 +490,14 @@ void generateOptimal(Graph &g, vector<vector<double>> &dist, int n, nlohmann::js
             optPath = path.second;
         }
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    // Calculate the duration in milliseconds
+    std::chrono::duration<double, std::milli> duration = end - start;
 
     // output
     Results optimal = g.analyzePath(optPath);
     optimal.name = "Optimal";
-    //optimal.path = optPath;
-    //optimal.MDA = minCost;
+    optimal.time = duration.count();
     output.push_back(optimal);
 
     #ifdef DISPLAY
