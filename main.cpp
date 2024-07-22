@@ -2,7 +2,6 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
-#include <set>
 #include <limits>
 #include <tuple>
 #include <utility>
@@ -11,6 +10,7 @@
 #include <lemon/list_graph.h>
 #include <lemon/matching.h>
 #include <chrono>
+#include <cstdint>
 
 #define START 0
 
@@ -37,10 +37,9 @@ struct Results
     double time;
 };
 
-void to_json(nlohmann::json& j, const Results& r) {
+void to_json(nlohmann::json& j, const Results& r) {    
     j = nlohmann::json{{"name", r.name}, {"MDA", r.MDA}, {"Path", r.path}, {"Time", r.time}};
 }
-
 
 class Graph {
 public:
@@ -332,8 +331,9 @@ void generatePathGreedy(Graph &g, nlohmann::json &output){
 
     Results r = g.analyzePath(greedyPath);
     r.name = "Greedy";
-    r.time = duration.count();
-    output.push_back(r);
+    r.time = duration.count();    
+    output["Greedy"] = {{"MDA", r.MDA}, {"Path", r.path}, {"Time", r.time}};
+    //output.push_back(r);
 
     #ifdef DISPLAY
     cout << "Greedy Path: ";
@@ -368,7 +368,8 @@ void generatePathMST(Graph &g, nlohmann::json &output){
     Results r = g.analyzePath(hamiltonianCircuit);
     r.name = "MST";
     r.time = duration.count();
-    output.push_back(r);
+    output["MST"] = {{"MDA", r.MDA}, {"Path", r.path}, {"Time", r.time}};    
+    //output.push_back(r);
 
     #ifdef DISPLAY
     cout << "Hamiltonian Cycle: ";
@@ -432,19 +433,22 @@ void generatePathEnforce(Graph &g, nlohmann::json &output){
     // Calculate the duration in milliseconds
     std::chrono::duration<double, std::milli> duration = end - start;
 
-    optimal.name = "Enforce";
-    optimal.time = duration.count();
-    output.push_back(optimal);
+    optimal.name = "Enforced";
+    optimal.time = duration.count();    
+    output["Enforced"] = {{"MDA", optimal.MDA}, {"Path", optimal.path}, {"Time", optimal.time}};
+    //output.push_back(optimal);
+    #ifdef DISPLAY
     cout << "Optimal first node: " << optimalTarget;    
     cout << endl << endl;
+    #endif
 }
 
 pair<double, vector<int>> heldKarp(vector<vector<double>> &dist, int n, int start, int end) {
-    int subset_size = 1 << n; // 2^n subsets
+    uint64_t subset_size = 1ULL << n; // 2^n subsets
     vector<vector<double>> dp(subset_size, vector<double>(n, numeric_limits<double>::infinity()));
     vector<vector<int>> parent(subset_size, vector<int>(n, -1));
 
-    dp[1 << start][start] = 0;
+    dp[1ULL << start][start] = 0;
 
     for (int mask = 0; mask < subset_size; ++mask) {
         for (int i = 0; i < n; ++i) {
@@ -460,20 +464,47 @@ pair<double, vector<int>> heldKarp(vector<vector<double>> &dist, int n, int star
         }
     }
 
+    // for n >= 32: 
+    // uint64_t subset_size = 1ULL << n; // 2^n subsets
+    // unordered_map<uint64_t, vector<double>> dp;
+    // unordered_map<uint64_t, vector<int>> parent;
+    
+    // dp.insert({1ULL << start, vector<double>(n, numeric_limits<double>::infinity())});
+    // parent.insert({1ULL << start, vector<int>(n, -1)});
+    // dp[1ULL << start][start] = 0;
+
+    // for (uint64_t mask = 0; mask < subset_size; ++mask) {
+    //     for (int i = 0; i < n; ++i) {
+    //         if (!(mask & (1ULL << i))) continue;
+    //         for (int j = 0; j < n; ++j) {
+    //             if (mask & (1ULL << j) || dist[i][j] == numeric_limits<double>::infinity()) continue;
+    //             if (dp.find(mask) == dp.end()) continue;
+    //             uint64_t new_mask = mask | (1ULL << j);
+    //             dp.insert({new_mask, vector<double>(n, numeric_limits<double>::infinity())});
+    //             parent.insert({new_mask, vector<int>(n, -1)});
+    //             if (dp[new_mask][j] > dp[mask][i] + dist[i][j]) {
+    //                 dp[new_mask][j] = dp[mask][i] + dist[i][j];
+    //                 parent[new_mask][j] = i;
+    //             }
+    //         }
+    //     }
+    // }
+
+
     // Retrieve the shortest path
     vector<int> path;
-    int mask = (1 << n) - 1;
+    uint64_t mask = (1ULL << n) - 1;
     int cur = end;
     while (cur != start) {
         path.push_back(cur);
         cur = parent[mask][cur];
-        mask &= ~(1 << path.back());
+        mask &= ~(1ULL << path.back());
     }
     path.push_back(start);
     path.push_back(0);
     reverse(path.begin(), path.end());
 
-    return {dp[(1 << n) - 1][end], path};
+    return {dp[(1ULL << n) - 1][end], path};
 }
 
 void generateOptimal(Graph &g, vector<vector<double>> &dist, int n, nlohmann::json &output){
@@ -481,12 +512,12 @@ void generateOptimal(Graph &g, vector<vector<double>> &dist, int n, nlohmann::js
     int bestFirstNode = 0;
     vector<int> optPath;
     auto start = std::chrono::high_resolution_clock::now();
-    for(int start=1; start < n; start++){
-        auto path = heldKarp(dist, n, start, 0); // alwasys end at 0
-        double MDA = dist[0][start] + 2*path.first;
+    for(int target=1; target < n; target++){
+        auto path = heldKarp(dist, n, target, 0); // alwasys end at 0
+        double MDA = dist[0][target] + 2*path.first;
         if(minCost > MDA){
             minCost = MDA;
-            bestFirstNode = start;
+            bestFirstNode = target;
             optPath = path.second;
         }
     }
@@ -497,8 +528,9 @@ void generateOptimal(Graph &g, vector<vector<double>> &dist, int n, nlohmann::js
     // output
     Results optimal = g.analyzePath(optPath);
     optimal.name = "Optimal";
-    optimal.time = duration.count();
-    output.push_back(optimal);
+    optimal.time = duration.count();    
+    output["Optimal"] = {{"MDA", optimal.MDA}, {"Path", optimal.path}, {"Time", optimal.time}};
+    //output.push_back(optimal);
 
     #ifdef DISPLAY
     cout << "Optimal MDA: " << minCost << endl;
@@ -518,13 +550,13 @@ int main(int argc, char *argv[]) {
     file >> j;
 
     std::ofstream output("output.json", std::ios::out);
+    nlohmann::json results = nlohmann::json::array();
 
     int M = j["cases"];
 
-    for (int scenarioN = 0; scenarioN < M; scenarioN++){
-
-        cout << "[Scenario " << scenarioN+1 << "]" << endl;
-        nlohmann::json result = nlohmann::json::array();
+    for (int scenarioN = 0; scenarioN < M; scenarioN++){        
+        cout << "[Scenario " << scenarioN+1 << "]" << endl;                
+        nlohmann::json result;
 
         int N = j["scenarios"][scenarioN]["N"];
         vector<Point> points(N);
@@ -548,9 +580,10 @@ int main(int argc, char *argv[]) {
         generatePathMST(g, result);
         generatePathEnforce(g, result);
         generateOptimal(g, dist, N, result);
-        output << result.dump(4) << endl;
+        results.push_back(result);
     }
 
+    output << results.dump(4) << endl;
     output.close();
 
     return 0;
