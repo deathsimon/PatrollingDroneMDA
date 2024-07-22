@@ -1,23 +1,25 @@
 import json
 import os
 import random
+import math
 
-def generate_coordinates_even(nodes, sideLength):
+def generate_coordinates_grid(nodes, sideLength):
     coordinates = []
     step = sideLength / 4
 
     for i in range(4):
-        for j in range(4):            
-            x = random.randrange((-1)*sideLength/2 + i * step, (-1)*sideLength/2 + (i + 1) * step)
-            y = random.randrange((-1)*sideLength/2 + j * step, (-1)*sideLength/2 + (j + 1) * step)
-            coordinates.append({"x": x, "y": y})
+        for j in range(4):
+            for _ in range(nodes // 16 +1):            
+                x = math.ceil(random.uniform((-1)*sideLength/2 + i * step, (-1)*sideLength/2 + (i + 1) * step))
+                y = math.ceil(random.uniform((-1)*sideLength/2 + j * step, (-1)*sideLength/2 + (j + 1) * step))
+                coordinates.append({"x": x, "y": y})
     return random.sample(coordinates,nodes)
 
 def generate_coordinates_cluster(nodes, sideLength):
     coordinates = []
     step = sideLength / 4
 
-    if nodes < 8:
+    if nodes <= 8:
         clusters = 1
     else:
         clusters = 4
@@ -27,8 +29,8 @@ def generate_coordinates_cluster(nodes, sideLength):
         for _ in range(nodes // clusters +1):
             i = area // 4
             j = area % 4
-            x = random.randrange((-1)*sideLength/2 + i * step, (-1)*sideLength/2 + (i + 1) * step)
-            y = random.randrange((-1)*sideLength/2 + j * step, (-1)*sideLength/2 + (j + 1) * step)
+            x = math.ceil(random.uniform((-1)*sideLength/2 + i * step, (-1)*sideLength/2 + (i + 1) * step))
+            y = math.ceil(random.uniform((-1)*sideLength/2 + j * step, (-1)*sideLength/2 + (j + 1) * step))
             coordinates.append({"x": x, "y": y})
 
     # for k in range(nodes % 4):
@@ -86,8 +88,8 @@ def main():
     # Generate coordinates
     for _ in range(cases):
         coordinates = [{"x": 0, "y": 0}]
-        if mode == "even":
-            coordinates.extend(generate_coordinates_even(nodes, sideLength))
+        if mode == "grid":
+            coordinates.extend(generate_coordinates_grid(nodes, sideLength))
         elif mode == "cluster":
             coordinates.extend(generate_coordinates_cluster(nodes, sideLength))
         elif mode == "outlier":
