@@ -5,7 +5,7 @@ if (strlen(input_file) == 0) {
 }
 
 # Set the terminal to png
-set terminal pngcairo size 1000,600 enhanced font 'Verdana,10'
+set terminal pngcairo size 1000,600 enhanced font 'Verdana,16'
 
 # Set the output file
 set output 'bar_chart.png'
@@ -26,7 +26,9 @@ set style histogram clustered gap 1
 set style fill solid border -1
 
 # Set the xtics
-set xtics rotate by -45
+#set xtics rotate by -30
+
+set key top left
 
 # Read the data file
 plot input_file using 2:xtic(1) title 'Greedy', \

@@ -5,7 +5,7 @@ if (strlen(input_file) == 0) {
 }
 
 # Set the terminal to png
-set terminal pngcairo size 800,600 enhanced font 'Verdana,12'
+set terminal pngcairo size 800,600 enhanced font 'Verdana,16'
 
 # Set the output file
 set output 'result.png'

@@ -35,9 +35,9 @@ def calculate_statistics(normalized_data):
     enforced_values = [record['Enforced'] for record in normalized_data]
     
     statistics = {
-        'Greedy': {'mean': np.mean(greedy_values), 'variance': np.var(greedy_values)},
-        'MST': {'mean': np.mean(mst_values), 'variance': np.var(mst_values)},
-        'Enforced': {'mean': np.mean(enforced_values), 'variance': np.var(enforced_values)}
+        'Greedy': {'mean': np.mean(greedy_values), 'std': np.std(greedy_values)},
+        'MST': {'mean': np.mean(mst_values), 'std': np.std(mst_values)},
+        'Enforced': {'mean': np.mean(enforced_values), 'std': np.std(enforced_values)}
     }
     
     return statistics
@@ -73,7 +73,7 @@ def avg_time(data):
     return avg_time
 
 def count_best(data):
-    best={0,0,0}
+    best=[0,0,0]
     for record in data:
         if record['Greedy']['MDA'] < record['MST']['MDA'] and record['Greedy']['MDA'] < record['Enforced']['MDA']:
             best[0] += 1
@@ -122,7 +122,7 @@ def main():
     
     print("Mean and Variance of Normalized Values:")
     for key, stats in statistics.items():
-        print(f"{key} - Mean: {stats['mean']}, Variance: {stats['variance']}")
+        print(f"{key} - Mean: {stats['mean']}, STD: {stats['std']}")
     
     #plot_data(sorted_data)
     write_normalized_data_to_file(sorted_data, output_file)
