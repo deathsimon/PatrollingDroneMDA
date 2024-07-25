@@ -31,7 +31,7 @@ set style fill solid border -1
 set key top left
 
 # Read the data file
-plot input_file using 2:xtic(1) title 'Greedy', \
-     '' using 3 title 'TSP', \
-     '' using 4 title 'Enforced', \
-     '' using 5 title 'DP'
+plot input_file using 2:xtic(1) title 'Greedy' linecolor rgb "#009e73", \
+     '' using 3 title 'SRTT' linecolor rgb "#e69f00", \
+     '' using 4 title 'Enforced' linecolor rgb "#9400d3", \
+     '' using 5 title 'DP' linecolor rgb "#56b4e9"
