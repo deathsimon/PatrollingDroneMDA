@@ -33,6 +33,6 @@ set style fill solid border -1
 set key above horizontal
 
 # Read the data file
-plot input_file using 8:xtic(1) title 'Enforced' linecolor rgb "#9400d3", \
-     '' using 7 title 'SRTT' linecolor rgb "#e69f00", \
-     '' using 6 title 'Greedy' linecolor rgb "#009e73"
+plot input_file using 8:xtic(1) title 'Enforced' linecolor rgb "#9400d3" fs pattern 1, \
+     '' using 7 title 'SRTT' linecolor rgb "#e69f00" fs pattern 4, \
+     '' using 6 title 'Greedy' linecolor rgb "#009e73" fs pattern 3
